@@ -1,22 +1,9 @@
 import logging, os, time, pathlib, threading
 import pymongo
 
+from inc.logger.logger_setup import logger_setup
+
 class DB_Manager:
-# ==================================================================================================
-    def logger_setup(self, logger_data):
-        logger_name = logger_data['name']
-        logger_path = logger_data['path']
-        try:
-            handler = logging.FileHandler(self.plm_path+logger_path, mode='a')
-        except:
-            logger_dir = os.path.dirname(logger_path)
-            os.makedirs(self.plm_path+logger_dir)
-            handler = logging.FileHandler(self.plm_path+logger_path, mode='a')
-        formatter = logging.Formatter('%(levelname)s: %(message)s')
-        handler.setFormatter(formatter)
-        self.db_logger = logging.getLogger(logger_name)
-        self.db_logger.setLevel(logging.INFO)
-        self.db_logger.addHandler(handler)
 # ==================================================================================================
     def update_movie_entry(self, name, save_path):
         self.tmdb_manager_request = {"status": "new", "name": name, "category": "Movies"}
@@ -50,7 +37,6 @@ class DB_Manager:
             self.db_logger.info(f"New TV document inserted into {self.db.name}: {tv_document}")
 # ==================================================================================================
     def __init__(self, data, plm_path):
-        self.plm_path = plm_path
         self.logger_data = data['logger']
         self.url = data['url']
         self.name = data['name']
@@ -58,7 +44,7 @@ class DB_Manager:
 
         self.tmdb_manager_request = {"status": "empty"}
 
-        self.logger_setup()
+        self.db_logger = logger_setup(plm_path, self.logger_data)
         self.db_logger.info(f"New DB_Manager instance created")
 
         self.db_client = pymongo.MongoClient(self.url)

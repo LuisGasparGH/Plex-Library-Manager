@@ -1,5 +1,6 @@
 import os, json, logging, time, threading, pathlib
 
+from inc.logger.logger_setup import logger_setup
 from inc.db import DB_Manager
 from inc.file import File_Manager
 from inc.plex import Plex_Manager
@@ -8,22 +9,6 @@ from inc.tmdb import TMDB_Manager
 
 
 class Plex_Library_Manager:
-# ==================================================================================================
-    # TEST VALID FOR ALL - LOGGER PATH NOT STARTING WITH "/"
-    def logger_setup(self):
-        logger_name = self.logger_data['name']
-        logger_path = self.logger_data['path']
-        try:
-            handler = logging.FileHandler(self.plm_path+logger_path, mode='a')
-        except:
-            logger_dir = os.path.dirname(logger_path)
-            os.makedirs(self.plm_path+logger_dir)
-            handler = logging.FileHandler(self.plm_path+logger_path, mode='a')
-        formatter = logging.Formatter('%(levelname)s: %(message)s')
-        handler.setFormatter(formatter)
-        self.plm_logger = logging.getLogger(logger_name)
-        self.plm_logger.setLevel(logging.INFO)
-        self.plm_logger.addHandler(handler)
 # ==================================================================================================
     def qbt_manager_fetch_db_updates(self):
         self.plm_logger.info(f"Thread active: qbt_manager_fetch_db_updates")
@@ -59,9 +44,10 @@ class Plex_Library_Manager:
 
         with open(self.plm_path+"/conf/config.json") as config_file:
             self.config = json.load(config_file)
+        config_file.close()
 
         self.logger_data = self.config['plm_data']['logger']
-        self.logger_setup()
+        self.plm_logger = logger_setup(self.plm_path, self.logger_data)
         self.plm_logger.info(f"Config file read")
 
         self.DB_Manager = DB_Manager(self.config['db_data'], self.plm_path)

@@ -1,22 +1,9 @@
 import logging, os, time, pathlib, threading, re
 import qbittorrentapi
 
+from inc.logger.logger_setup import logger_setup
+
 class QBT_Manager:
-# ==================================================================================================
-    def logger_setup(self):
-        logger_name = self.logger_data['name']
-        logger_path = self.logger_data['path']
-        try:
-            handler = logging.FileHandler(self.plm_path+logger_path, mode='a')
-        except:
-            logger_dir = os.path.dirname(logger_path)
-            os.makedirs(self.plm_path+logger_dir)
-            handler = logging.FileHandler(self.plm_path+logger_path, mode='a')
-        formatter = logging.Formatter('%(levelname)s: %(message)s')
-        handler.setFormatter(formatter)
-        self.qbt_logger = logging.getLogger(logger_name)
-        self.qbt_logger.setLevel(logging.INFO)
-        self.qbt_logger.addHandler(handler)
 # ==================================================================================================
     def scanner(self):
         self.qbt_logger.info(f"Thread active: scanner")
@@ -129,7 +116,6 @@ class QBT_Manager:
             self.qbt_logger.info(f"Torrent deleted: {torrent.name}")
 # ==================================================================================================
     def __init__(self, data, plm_path):
-        self.plm_path = plm_path
         self.logger_data = data['logger']
         self.username = data['username']
         self.password = data['password']
@@ -139,7 +125,7 @@ class QBT_Manager:
         self.tv_search_pattern = "s\d{2}e\d{2}"
         self.db_manager_update_entry = {"status": "empty"}
 
-        self.logger_setup()
+        self.qbt_logger = logger_setup(plm_path, self.logger_data)
         self.qbt_logger.info(f"New QBT_Manager instance created")
 
         self.qbt_client = qbittorrentapi.Client(host="localhost", port=self.port, username=self.username, password=self.password)
