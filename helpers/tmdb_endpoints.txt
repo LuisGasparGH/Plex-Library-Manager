@@ -1,0 +1,17 @@
+"lists":{
+    "tv_id": "8248408",
+    "movies_id": "8248409",
+    "details": "https://api.themoviedb.org/3/list/{list_id}?api_key={api_key}"
+},
+"tv":{
+    "show_details": "https://api.themoviedb.org/3/tv/{tv_id}?api_key={api_key}",
+    "season_details": "https://api.themoviedb.org/3/tv/{tv_id}/season/{season_number}?api_key={api_key}",
+    "episode_details": "https://api.themoviedb.org/3/tv/{tv_id}/season/{season_number}/episode/{episode_number}?api_key={api_key}"
+},
+"movies":{
+    "details": "https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}"
+},
+"search":{
+    "tv": "https://api.themoviedb.org/3/search/tv?api_key={api_key}&query={query}&include_adult=true",
+    "movies": "https://api.themoviedb.org/3/search/movie?api_key={api_key}&query={query}&include_adult=true&year={year}"
+}

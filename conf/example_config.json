@@ -1,0 +1,76 @@
+{
+    "plm_data":{
+        "logger":{
+            "name": "plm-logger",
+            "path": "/logs/plm/plex-library-manager.log"
+        }   
+    },
+    "db_data":{
+        "logger":{
+            "name": "db-logger",
+            "path": "/logs/db/db-manager.log"
+
+        },
+        "url": "mongodb://localhost:27017/",
+        "name": "plex_database",
+        "collections":{
+            "tv": "tv_collection",
+            "movies": "movies_collection"
+        }
+    },
+    "file_data":{
+        "logger":{
+            "name": "file-logger",
+            "path": "/logs/file/file-manager.log"
+        },
+        "path":{
+            "tv": "/path/to/plex/Library/Shows/",
+            "movies": "/path/to/plex/Library/Movies/"
+        }
+    },
+    "plex_data":{
+        "logger":{
+            "name": "plex-logger",
+            "path": "/logs/plex/plex-manager.log"
+        } ,
+        "username": "username",
+        "password": "password",
+        "servername": "servername"
+    },
+    "qbt_data":{
+        "logger":{
+            "name": "qbt-logger",
+            "path": "/logs/qbt/qbt-manager.log"
+        },
+        "username": "username",
+        "password": "password",
+        "port": 8080,
+        "supported_extensions": [".mkv",".mp4",".avi", ".mov"]
+    },
+    "tmdb_data":{
+        "logger":{
+            "name": "tmdb-logger",
+            "path": "/logs/tmdb/tmdb-manager.log"
+        },
+        "api_key": "yourAPIkey",
+        "endpoints":{
+            "lists":{
+                "tv_id": "tv_list_id",
+                "movies_id": "movies_list_id",
+                "details": "https://api.themoviedb.org/3/list/{list_id}?api_key={api_key}"
+            },
+            "tv":{
+                "show_details": "https://api.themoviedb.org/3/tv/{tv_id}?api_key={api_key}",
+                "season_details": "https://api.themoviedb.org/3/tv/{tv_id}/season/{season_number}?api_key={api_key}",
+                "episode_details": "https://api.themoviedb.org/3/tv/{tv_id}/season/{season_number}/episode/{episode_number}?api_key={api_key}"
+            },
+            "movies":{
+                "details": "https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}"
+            },
+            "search":{
+                "tv": "https://api.themoviedb.org/3/search/tv?api_key={api_key}&query={query}&include_adult=true",
+                "movies": "https://api.themoviedb.org/3/search/movie?api_key={api_key}&query={query}&include_adult=true&year={year}"
+            }
+        }
+    }
+}

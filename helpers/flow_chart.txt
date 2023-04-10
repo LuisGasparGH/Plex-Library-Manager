@@ -1,0 +1,61 @@
+QBT Manager: scans active torrents every hour
+    - If there is any paused torrents, means they are recently added and need to be handled
+        - If category is "Movies": - DONE, FULLY TEST
+            > Sends torrent to movie handler with status "paused" - DONE
+            > Filters movie name - DONE
+            > Removes all non media files - DONE
+            > Renames media file to filtered name - DONE
+            > Rename torrent to filtered name - DONE
+            > Changes save path to put inside folder with filtered name - DONE
+            > Rename torrent to movie name - DONE
+            > Resume torrent - DONE
+        - If category is "TV Episode": - DONE, FULLY TEST
+            > Filter season and episode number searching for pattern - DONE
+            > Filter series name using everything before pattern - DONE
+            > Remove all non media files - DONE
+            > Rename media file to filtered series name + season number + episode number - DONE
+            > Change save path to put inside folder of correct season - DONE
+            > Rename torrent to show name and season-episode number - DONE
+            > Resume torrent - DONE
+        - If category is "TV Season":
+            > Filter series name
+            > Filter season number
+            > Remove all non media files
+            > Rename all media files in order to series name + season number + episode number
+            > Change save path to put inside folder of correct season
+            > Resume torrent
+    - If there are any seeding torrents, means download has finished
+        - If category is "Movies": DONE, FULLY TEST
+            > Triggers PLM Manager to tell DB Manager to add entry to database - DONE
+                > Send torrent name, category and save path - DONE
+            > Removes torrent - DONE
+        - If category is "TV Episode": DONE, FULLY TEST
+            > Triggers PLM Manager to tell DB Manager to add entry to database - DONE
+                > Send torrent name, category, show save path, season-episode number - DONE
+            > Removes torrent - DONE
+        - If category is "TV Season":
+            > Triggers DB Manager to add entry to database if not existant with category "TV"
+                > Send torrent name and save path
+            > Triggers DB to update latest downloaded in series entry with season and last episode number
+            > Removes torrent
+    - After handling all paused and seeding torrents, sleeps for 1 hour (3600 seconds)
+===============================================================================================================================
+DB Manager:
+    - If triggered by QBT Manager to update entry in database:
+        - If function is "Movies":
+            > Triggers PLM Manager to tell TMDB Manager to search and fetch data, using movie name - DONE
+            > Add entry with correct details: name, tmdb_id, save_path - DONE
+        - If function is "TV":
+            > Search if any entry with save path exists
+                > If yes, update entry with latest download
+                > If no, triggers PLM Manager to tell TMDB Manager to search and fetch data, using show name - DONE
+                    > Add entry with correct details: name, tmdb_id, save_path, seasons, last_dl - DONE
+        > Trigger File Manager to update file names, sending type and TMDB ID
+    - If triggered by Plex Manager to delete entry from database:
+        > Delete entry with save path from database
+        > Trigger File Manager to delete entry save path
+===============================================================================================================================
+File Manager:
+    - If triggerd by DB Manager to update file names:
+        > Trigger TMDB Manager to get media details with type and ID received
+        # TO CONTINUE
