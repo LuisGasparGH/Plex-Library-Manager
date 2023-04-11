@@ -61,10 +61,11 @@ File Manager:
         # TO CONTINUE
 ===============================================================================================================================
 TMDB Manager:
-    List Scanner: fetches list items every day, after QBT Manager handles torrents (86400 seconds)
+    List Scanner: fetches list items every day, 1 hour after QBT Manager handles torrents (86400 seconds)
     
-    Notes regarding Scanner: as for Movies, the Scanner is responsible for directly triggering the download, as it is only one file.
-    But for Series, the Scanner only triggers download for the first season. The rest of the season/episode downloads are triggred by the File Manager when organizing files.
+    Notes regarding List Scanner: as for Movies, the List Scanner is responsible for directly triggering a download attempt, as it is only one file.
+    But for TV Shows, the List Scanner only triggers download for the first episode. The rest of the episode downloads are triggered by the File Manager when organizing files.
+    The biggest focus of the List Scanner is RSS Feed management, and keeping PLM in sync with the TMDB lists
 
         > Gets info from "TV" and "Movies" list
         > For every "Movies" item:
