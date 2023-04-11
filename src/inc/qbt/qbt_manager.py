@@ -21,7 +21,8 @@ class QBT_Manager:
                     elif torrent.category == "TV Episode" or torrent.category == "TV Season":
                         self.tv_handler(torrent=torrent, status="paused")
                     else:
-                        self.qbt_logger.warning(f"Incompatible category detected: {torrent.category}, on torrent {torrent.name}, please review manually")
+                        self.qbt_logger.warning(f"Incompatible category detected: {torrent.category}, on torrent {torrent.name}, \
+                                                please review manually")
             
             if len(self.seeding) != 0:
                 self.qbt_logger.info(f"Seeding torrents found: {len(self.seeding)}")
@@ -59,9 +60,9 @@ class QBT_Manager:
                     affectedFeed = rss_items["TV"]['url']
                     savePath = "/downloads/Shows" + name
                 
-                settings = {"enabled": True, "mustContain": mustContain, "mustNotContain": "", "useRegex": False, "episodeFilter": "", "smartFilter": True,
-                            "previouslyMatchedEpisodes": [], "affectedFeeds": [affectedFeed], "ignoreDays": 0, "lastMatch": "", "addPaused": True,
-                            "assignedCategory": category, "savePath": savePath}    
+                settings = {"enabled": True, "mustContain": mustContain, "mustNotContain": "", "useRegex": False, "episodeFilter": "",
+                            "smartFilter": True, "previouslyMatchedEpisodes": [], "affectedFeeds": [affectedFeed], "ignoreDays": 0,
+                            "lastMatch": "", "addPaused": True, "assignedCategory": category, "savePath": savePath}    
                 
                 self.qbt_client.rss_set_rule(rule_name=name, rule_def=settings)
         elif operation == "modify":

@@ -49,11 +49,14 @@ class Plex_Library_Manager:
                 
                 if qbt_request['operation'] == "add":
                     if qbt_request['data']['type'] == "Torrent":
-                        action_result = self.QBT_Manager.modify_torrent(operation=qbt_request['operation'], category=qbt_request['category'], name=qbt_request['data']['name'])
+                        action_result = self.QBT_Manager.modify_torrent(operation=qbt_request['operation'], category=qbt_request['category'],
+                                                                        name=qbt_request['data']['name'])
                     elif qbt_request['data']['type'] == "RSS":
-                        action_result = self.QBT_Manager.modify_rss_feed(operation=qbt_request['operation'], category=qbt_request['category'], name=qbt_request['data']['name'])
+                        action_result = self.QBT_Manager.modify_rss_feed(operation=qbt_request['operation'], category=qbt_request['category'],
+                                                                         name=qbt_request['data']['name'])
                 elif qbt_request['operation'] == "remove":
-                    action_result = self.QBT_Manager.modify_rss_feed(operation=qbt_request['operation'], category=qbt_request['category'], name=qbt_request['data']['name'])
+                    action_result = self.QBT_Manager.modify_rss_feed(operation=qbt_request['operation'], category=qbt_request['category'],
+                                                                     name=qbt_request['data']['name'])
                 
                 self.TMDB_Manager.qbt_request['result'] = action_result
 
@@ -104,5 +107,5 @@ class Plex_Library_Manager:
             self.plm_logger.info(f"Thread started: {self.fetch_tmdb_requests_thread.name}")
         except:
             self.plm_logger.warning(f"Error starting thread: {self.fetch_tmdb_requests_thread.name}")
-
+# ==================================================================================================
 PLM = Plex_Library_Manager()

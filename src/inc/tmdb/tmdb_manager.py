@@ -24,7 +24,8 @@ class TMDB_Manager:
                 self.tmdb_logger.info(f"Search result for database entry with ID {movie_item[id]}: {self.db_request['result']['response']}")
                 if self.db_request['result']['response'] == True:
                     self.tmdb_logger.info(f"Sending request: delete RSS Feed for {movie_item['title']}")
-                    request_payload = {"operation": "remove", "category": "Movies", "data": {"type": "RSS", "name": movie_item['title'].title()}}
+                    request_payload = {"operation": "remove", "category": "Movies", "data": {"type": "RSS",
+                                                                                             "name": movie_item['title'].title()}}
                     send_qbt_request(self, request_payload)
                     self.qbt_request['result'] = {}
                 elif self.db_request['result']['response'] == False:
@@ -34,19 +35,22 @@ class TMDB_Manager:
                     if current_date < release_date:
                         self.tmdb_logger.info(f"Movie not yet released: {movie_item['title']} (release date {movie_item['release_date']})")
                         self.tmdb_logger.info(f"Sending request: add RSS Feed for {movie_item['title']}")
-                        request_payload = {"operation": "add", "category": "Movies", "data": {"type": "RSS", "name": movie_item['title'].title()}}
+                        request_payload = {"operation": "add", "category": "Movies", "data": {"type": "RSS",
+                                                                                              "name": movie_item['title'].title()}}
                         send_qbt_request(self, request_payload)
                         self.qbt_request['result'] = {}
                     elif current_date > release_date:
                         self.tmdb_logger.info(f"Movie already released: {movie_item['title']} (release date {movie_item['release_date']})")
                         self.tmdb_logger.info(f"Sending request: try to add Torrent for {movie_item['title']}")
-                        request_payload = {"operation": "add", "category": "Movies", "data": {"type": "Torrent", "name": movie_item['title'].title()}}
+                        request_payload = {"operation": "add", "category": "Movies", "data": {"type": "Torrent",
+                                                                                              "name": movie_item['title'].title()}}
                         send_qbt_request(self, request_payload)
                         
                         if self.qbt_request['result']['response'] == "fail":
                             self.tmdb_logger.info(f"Torrent add failed: no suitable result")
                             self.tmdb_logger.info(f"Sending request: add RSS Feed for {movie_item['title']}")
-                            request_payload = {"operation": "add", "category": "Movies", "data": {"type": "RSS", "name": movie_item['title'].title()}}
+                            request_payload = {"operation": "add", "category": "Movies", "data": {"type": "RSS",
+                                                                                                  "name": movie_item['title'].title()}}
                             send_qbt_request(self, request_payload)
                             self.qbt_request['result'] = {}
                         elif self.qbt_request['result']['response'] == "success":
@@ -95,13 +99,15 @@ class TMDB_Manager:
                     elif current_date > first_air_date:
                         self.tmdb_logger.info(f"TV Show already on air: {tv_item['name']} (first air date {tv_item['first_air_date']})")
                         self.tmdb_logger.info(f"Sending request: try to add Torrent for first episode of {tv_item['name']}")
-                        request_payload = {"operation": "add", "category": "TV Episode", "data": {"type": "Torrent", "name": tv_item['name'].title()}}
+                        request_payload = {"operation": "add", "category": "TV Episode", "data": {"type": "Torrent",
+                                                                                                  "name": tv_item['name'].title()}}
                         send_qbt_request(self, request_payload)
 
                         if self.qbt_request['result']['response'] == "fail":
                             self.tmdb_logger.info(f"Torrent add failed: no suitable result")
                             self.tmdb_logger.info(f"Sending request: add RSS Feed for episodes of {tv_item['name']}")
-                            request_payload = {"operation": "add", "category": "TV Episode", "data": {"type": "RSS", "name": tv_item['name'].title()}}
+                            request_payload = {"operation": "add", "category": "TV Episode", "data": {"type": "RSS",
+                                                                                                      "name": tv_item['name'].title()}}
                             send_qbt_request(self, request_payload)
                             self.qbt_request['result'] = {}
                         elif self.qbt_request['result']['response'] == "success":
