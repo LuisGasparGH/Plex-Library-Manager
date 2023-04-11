@@ -5,6 +5,15 @@ from inc.logger.logger_setup import logger_setup
 
 class DB_Manager:
 # ==================================================================================================
+    def search_entry(self, category, query):
+        # SEARCH BY ID, NAME, SAVE PATH
+        if category == "Movies":
+            search_result = self.movies_collection.find_one(filter=query)
+        elif category == "TV":
+            search_result = self.tv_collection.find_one(filter=query)
+        
+        return search_result
+# ==================================================================================================
     # TO DO - Try and combine similar parts of update entry (mainly insert_one section)
     def update_movie_entry(self, name, save_path):
         self.db_logger.info(f"Request to update Movie entry received")

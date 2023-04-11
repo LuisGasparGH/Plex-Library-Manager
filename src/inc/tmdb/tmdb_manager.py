@@ -79,7 +79,7 @@ class TMDB_Manager:
                     elif production_status == True or current_date < last_air_date+week_delta:
                         self.tmdb_logger.info(f"TV Show last episode aired: under 1 week ago: {tv_item['name']} -> {tv_details['last_air_date']}")
                         self.tmdb_logger.info(f"Sending request: add RSS Feed for episodes of {tv_item['name']}")
-                        request_payload = {"operation": "add", "category": "TV", "data": {"type": "RSS", "name": tv_item['name'].title()}}
+                        request_payload = {"operation": "add", "category": "TV Episode", "data": {"type": "RSS", "name": tv_item['name'].title()}}
                         send_qbt_request(self, request_payload)
                         self.qbt_request['result'] = {}
                 elif self.db_request['result']['response'] == False:
@@ -89,13 +89,13 @@ class TMDB_Manager:
                     if current_date < first_air_date:
                         self.tmdb_logger.info(f"TV Show not yet on air: {tv_item['name']} (first air date {tv_item['first_air_date']})")
                         self.tmdb_logger.info(f"Sending request: add RSS Feed for episodes of {tv_item['name']}")
-                        request_payload = {"operation": "add", "category": "TV", "data": {"type": "RSS", "name": tv_item['name'].title()}}
+                        request_payload = {"operation": "add", "category": "TV Episode", "data": {"type": "RSS", "name": tv_item['name'].title()}}
                         send_qbt_request(self, request_payload)
                         self.qbt_request['result'] = {}
                     elif current_date > first_air_date:
                         self.tmdb_logger.info(f"TV Show already on air: {tv_item['name']} (first air date {tv_item['first_air_date']})")
                         self.tmdb_logger.info(f"Sending request: try to add Torrent for first episode of {tv_item['name']}")
-                        request_payload = {"operation": "add", "category": "TV", "data": {"type": "Torrent", "name": tv_item['name'].title()}}
+                        request_payload = {"operation": "add", "category": "TV Episode", "data": {"type": "Torrent", "name": tv_item['name'].title()}}
                         send_qbt_request(self, request_payload)
 
                         if self.qbt_request['result']['response'] == "fail":

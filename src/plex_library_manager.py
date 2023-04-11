@@ -1,46 +1,65 @@
 import os, json, logging, time, threading, pathlib
 
 from inc.logger.logger_setup import logger_setup
-from inc.db import DB_Manager
-from inc.file import File_Manager
-from inc.plex import Plex_Manager
-from inc.qbt import QBT_Manager
-from inc.tmdb import TMDB_Manager
+from inc.db.db_manager import DB_Manager
+from inc.file.file_manager import File_Manager
+from inc.plex.plex_manager import Plex_Manager
+from inc.qbt.qbt_manager import QBT_Manager
+from inc.tmdb.tmdb_manager import TMDB_Manager
 
 
 class Plex_Library_Manager:
 # ==================================================================================================
-    def qbt_manager_fetch_db_updates(self):
-        self.plm_logger.info(f"Thread active: {self.qbt_manager_fetch_db_updates_thread.name}")
+    def fetch_db_requests(self):
+        self.plm_logger.info(f"Thread active: {self.fetch_db_requests_thread.name}")
         
         while True:
-            while self.QBT_Manager.db_manager_update_entry['status'] != "new":
-                time.sleep(60)
             
-            db_entry = self.QBT_Manager.db_manager_update_entry
-            # TO DO - Append result to status instead of full build
-            if db_entry['category'] == "Movies":
-                self.DB_Manager.update_movie_entry(name=db_entry['name'], save_path=db_entry['save_path'])
-                self.QBT_Manager.db_manager_update_entry = {"status": "completed"}
-            elif db_entry['category'] == "TV":
-                self.DB_Manager.update_tv_entry(name=db_entry['name'], save_path=db_entry['save_path'], last_dl=db_entry['last_dl'])
-                self.QBT_Manager.db_manager_update_entry = {"status": "completed"}
+            time.sleep(1)
 # ==================================================================================================
-    def db_manager_fetch_tmdb_requests(self):
-        self.plm_logger.info(f"Thread active: db_manager_fetch_tmdb_requests")
+    def fetch_qbt_requests(self):
+        self.plm_logger.info(f"Thread active: {self.fetch_qbt_requests_thread.name}")
         
         while True:
-            while self.DB_Manager.tmdb_manager_request['status'] != "new":
-                time.sleep(60)
             
-            tmdb_request = self.DB_Manager.tmdb_manager_request
-            # TO DO - Append result to status instead of full build
-            if tmdb_request['category'] == "Movies":
-                result = self.TMDB_Manager.search_movie(name=tmdb_request['name'])
-                self.DB_Manager.tmdb_manager_request = {"status": "completed", "tmdb_name": result['name'], "tmdb_id": result['id']}
-            elif tmdb_request['category'] == "TV":
-                result = self.TMDB_Manager.search_tv(name=tmdb_request['name'])
-                self.DB_Manager.tmdb_manager_request = {"status": "completed", "tmdb_name": result['name'], "tmdb_id": result['id'], "tmdb_seasons": result['seasons']}
+            time.sleep(1)
+# ==================================================================================================
+    def fetch_tmdb_requests(self):
+        self.plm_logger.info(f"Thread active: {self.fetch_tmdb_requests_thread.name}")
+        
+        while True:
+            db_request = self.TMDB_Manager.db_request
+            qbt_request = self.TMDB_Manager.qbt_request
+
+            if db_request['status'] == "new":
+                self.TMDB_Manager.db_request['status'] = "processing"
+                
+                if db_request['operation'] == "search":
+                    search_result = self.DB_Manager.search_entry(category=db_request['category'], query=db_request['data'])
+
+                    if search_result != None:
+                        self.TMDB_Manager.db_request['result'] = {"response": True}
+                    elif search_result == None:
+                        self.TMDB_Manager.db_request['result'] = {"response": False}
+                    
+            self.TMDB_Manager.db_request['status'] = "complete"
+            
+            if qbt_request['status'] == "new":
+                self.TMDB_Manager.db_request['status'] = "processing"
+                
+                if qbt_request['operation'] == "add":
+                    if qbt_request['data']['type'] == "Torrent":
+                        action_result = self.QBT_Manager.modify_torrent(operation=qbt_request['operation'], category=qbt_request['category'], name=qbt_request['data']['name'])
+                    elif qbt_request['data']['type'] == "RSS":
+                        action_result = self.QBT_Manager.modify_rss_feed(operation=qbt_request['operation'], category=qbt_request['category'], name=qbt_request['data']['name'])
+                elif qbt_request['operation'] == "remove":
+                    action_result = self.QBT_Manager.modify_rss_feed(operation=qbt_request['operation'], category=qbt_request['category'], name=qbt_request['data']['name'])
+                
+                self.TMDB_Manager.qbt_request['result'] = action_result
+
+            self.TMDB_Manager.qbt_request['status'] = "complete"
+
+            time.sleep(1)
 # ==================================================================================================
     def __init__(self):
         self.plm_path = os.getcwd()
@@ -55,12 +74,12 @@ class Plex_Library_Manager:
 
         self.DB_Manager = DB_Manager(self.config['db_data'], self.plm_path)
         self.plm_logger.info(f"New DB_Manager instance called")
-        self.db_manager_fetch_tmdb_requests_thread = threading.Thread(target=self.db_manager_fetch_tmdb_requests, args=())
+        self.fetch_db_requests_thread = threading.Thread(target=self.fetch_db_requests, args=())
         try:
-            self.db_manager_fetch_tmdb_requests_thread.start()
-            self.plm_logger.info(f"Thread started: {self.db_manager_fetch_tmdb_requests_thread.name}")
+            self.fetch_db_requests_thread.start()
+            self.plm_logger.info(f"Thread started: {self.fetch_db_requests_thread.name}")
         except:
-            self.plm_logger.warning(f"Error starting thread: {self.db_manager_fetch_tmdb_requests_thread.name}")
+            self.plm_logger.warning(f"Error starting thread: {self.fetch_db_requests_thread.name}")
         
         # self.File_Manager = File_Manager(self.config['file_data'], self.plm_path)
         # logging.info(f"New File_Manager instance called")
@@ -70,14 +89,20 @@ class Plex_Library_Manager:
         
         self.QBT_Manager = QBT_Manager(self.config['qbt_data'], self.plm_path)
         self.plm_logger.info(f"New QBT_Manager instance called")
-        self.qbt_manager_fetch_db_updates_thread = threading.Thread(target=self.qbt_manager_fetch_db_updates, args=())
+        self.fetch_qbt_requests_thread = threading.Thread(target=self.fetch_qbt_requests, args=())
         try:
-            self.qbt_manager_fetch_db_updates_thread.start()
-            self.plm_logger.info(f"Thread started: {self.qbt_manager_fetch_db_updates_thread.name}")
+            self.fetch_qbt_requests_thread.start()
+            self.plm_logger.info(f"Thread started: {self.fetch_qbt_requests_thread.name}")
         except:
-            self.plm_logger.warning(f"Error starting thread: {self.qbt_manager_fetch_db_updates_thread.name}")
+            self.plm_logger.warning(f"Error starting thread: {self.fetch_qbt_requests_thread.name}")
         
         self.TMDB_Manager = TMDB_Manager(self.config['tmdb_data'], self.plm_path)
         self.plm_logger.info(f"New TMDB_Manager instance called")
+        self.fetch_tmdb_requests_thread = threading.Thread(target=self.fetch_tmdb_requests, args=())
+        try:
+            self.fetch_tmdb_requests_thread.start()
+            self.plm_logger.info(f"Thread started: {self.fetch_tmdb_requests_thread.name}")
+        except:
+            self.plm_logger.warning(f"Error starting thread: {self.fetch_tmdb_requests_thread.name}")
 
 PLM = Plex_Library_Manager()

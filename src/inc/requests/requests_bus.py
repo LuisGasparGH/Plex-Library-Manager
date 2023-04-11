@@ -3,7 +3,7 @@ import time
 #   Requests format:
 #      request = {
 #          "status": "empty" || "new" || "processing" || "complete"
-#          "operation": "add" || "remove" || "change" || "search"
+#          "operation": "add" || "remove" || "modify" || "search"
 #          "category": "Movies || "TV" || "TV Season" || "TV Episode"
 #          "data":{"field1": ..., "field2":..., ...}
 #          "result": {"response": ..., "field1": ..., "field2": ..., ...}

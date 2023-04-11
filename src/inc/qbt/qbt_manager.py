@@ -1,4 +1,4 @@
-import logging, os, time, pathlib, threading, re
+import os, time, pathlib, threading, re, json
 import qbittorrentapi
 
 from inc.logger.logger_setup import logger_setup
@@ -32,6 +32,48 @@ class QBT_Manager:
                         self.tv_handler(torrent=torrent, status="seeding")
             
             time.sleep(3600)
+# ==================================================================================================
+    def modify_torrent(self, operation, category, name):
+        if operation == "add":
+            pass
+            # This is where torrent search will occur, based on YIFY and EZTV API's
+        elif operation == "modify":
+            pass
+        elif operation == "remove":
+            pass
+# ==================================================================================================
+    def modify_rss_feed(self, operation, category, name):
+        # Apply logger
+        rss_rules = self.qbt_client.rss_rules()
+        rss_items = self.qbt_client.rss_items()
+
+        if operation == "add":
+            # Change savePath in order to accept different paths
+            if bool(rss_rules[name]) == False:
+                if category == "Movies":
+                    mustContain = name + " 1080p"
+                    affectedFeed = rss_items["Movies"]['url']
+                    savePath = "/downloads/Movies/" + name
+                elif category == "TV Episode":
+                    mustContain = name + " S??E?? 1080p"
+                    affectedFeed = rss_items["TV"]['url']
+                    savePath = "/downloads/Shows" + name
+                
+                settings = {"enabled": True, "mustContain": mustContain, "mustNotContain": "", "useRegex": False, "episodeFilter": "", "smartFilter": True,
+                            "previouslyMatchedEpisodes": [], "affectedFeeds": [affectedFeed], "ignoreDays": 0, "lastMatch": "", "addPaused": True,
+                            "assignedCategory": category, "savePath": savePath}    
+                
+                self.qbt_client.rss_set_rule(rule_name=name, rule_def=settings)
+        elif operation == "modify":
+            pass
+        elif operation == "remove":
+            action_result = {"response": "none_found"}
+            for rule in rss_rules:
+                if rule.title() == name:
+                    self.qbt_client.rss_remove_rule(rule_name=rule)
+                    action_result = {"response": "deleted"}
+            
+            return action_result
 # ==================================================================================================
     # TO DO - Add protection against different torrent name patterns (test from various websites to catch new patterns)
     def movies_handler(self, torrent, status):
