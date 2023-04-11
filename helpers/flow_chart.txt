@@ -1,4 +1,4 @@
-QBT Manager: scans active torrents every hour
+QBT Manager: REWRITE scans active torrents every hour
     - If there is any paused torrents, means they are recently added and need to be handled
         - If category is "Movies": - DONE, FULLY TEST
             > Sends torrent to movie handler with status "paused" - DONE
@@ -40,7 +40,7 @@ QBT Manager: scans active torrents every hour
             > Removes torrent
     - After handling all paused and seeding torrents, sleeps for 1 hour (3600 seconds)
 ===============================================================================================================================
-DB Manager:
+DB Manager: REWRITE
     - If triggered by QBT Manager to update entry in database:
         - If function is "Movies":
             > Triggers PLM Manager to tell TMDB Manager to search and fetch data, using movie name - DONE
@@ -59,3 +59,38 @@ File Manager:
     - If triggerd by DB Manager to update file names:
         > Trigger TMDB Manager to get media details with type and ID received
         # TO CONTINUE
+===============================================================================================================================
+TMDB Manager:
+    List Scanner: fetches list items every day, after QBT Manager handles torrents (86400 seconds)
+    
+    Notes regarding Scanner: as for Movies, the Scanner is responsible for directly triggering the download, as it is only one file.
+    But for Series, the Scanner only triggers download for the first season. The rest of the season/episode downloads are triggred by the File Manager when organizing files.
+
+        > Gets info from "TV" and "Movies" list
+        > For every "Movies" item:
+            > Send request to DB Manager (through PLM Manager) to search if item exists in database: sends {ID, Category}, receives {Exists}
+            (REMINDER: "Movies" item is ONLY in database if the file is already downloaded)
+                > If yes: send request to QBT Manager (through PLM Manager) to delete RSS Feed for it: sends {Name, Category}, receives {Deleted}
+                (will be ignored if no RSS feed matches)
+                > If no: check launch date from item
+                    > If launch date not yet passed: send request to QBT Manager (through PLM Manager) to add RSS Feed for it: sends {Name, Category}, receives {Added}
+                    (will be ignored if RSS feed already exists)
+                    > If launch date already passed: send request to RSS Manager (through PLM Manager) to try add torrent for it: sends {Name, Category}, receives {Added}
+                    (will be ignored if torrent for Movie already exists)
+                        > If torrent not added: send request to QBT Manager (through PLM Manager) to add RSS feed for it: sends {Name, Category}, receives {Added}
+                        (will be ignored if RSS Feed already exists)
+        > For every "TV" item:
+            > Send request to DB Manager (through PLM Manager) to search if item exists in database: sends {ID, Category}, receives {Exists}
+            (REMINDER: "TV" item is ONLY in database if there is at least one episode already downloaded)
+                > If yes: get show production info from TMDB, using ID
+                    > If production ended at least 1 week ago: send request to QBT Manager (through PLM Manager) to delete RSS Feed for it: sends {Name, Category}, receives {Deleted}
+                    (will be ignored if no RSS Feed matches)
+                    > If in production or ended less than 1 week ago: send request to QBT Manager (through PLM Manager) to add RSS Feed for it: sends {Name, Category}, receives {Added}
+                    (will be ignored if RSS Feed already exists)
+                If no: check launch date from item
+                    > If launch date not yet passed: send request to QBT Manager to (through PLM Manager) to add RSS Feed for it: sends {Name, Category}, receives {Added}
+                    (will be ignored if RSS Feed already exists)
+                    > If launch date already passed: send request to RSS Manager (through PLM Manager) to try add first episode to torrents: sends {Name, Category}, receives {Added}
+                    (will be ignored if any torrent for TV Show already exists)
+                        > If torrent not added: send request to QBT Manager (through PLM Manager) to add RSS Feed for it: sends {Name, Category}, receives {Added}
+                        (will be ignored if RSS Feed already exists)
