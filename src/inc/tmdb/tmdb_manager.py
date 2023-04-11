@@ -2,6 +2,7 @@ import os, time, pathlib, threading, datetime
 import tmdbsimple
 
 from inc.logger.logger_setup import logger_setup
+from inc.requests.requests_bus import *
 
 class TMDB_Manager:
 # ==================================================================================================
@@ -17,42 +18,49 @@ class TMDB_Manager:
 
             for movie_item in self.movie_list_items:
                 self.tmdb_logger.info(f"Sending request: search for entry with ID {movie_item['id']} in database")
-                self.plm_db_request(operation="search", id=movie_item['id'], category="Movies")
+                request_payload = {"operation": "search", "category": "Movies", "data": {"tmdb_id": movie_item['id']}}
+                send_db_request(self, request_payload)
 
-                self.tmdb_logger.info(f"Search result for database entry with ID {movie_item[id]}: {self.db_request['result']}")
-                if self.db_request['result'] == True:
+                self.tmdb_logger.info(f"Search result for database entry with ID {movie_item[id]}: {self.db_request['result']['response']}")
+                if self.db_request['result']['response'] == True:
                     self.tmdb_logger.info(f"Sending request: delete RSS Feed for {movie_item['title']}")
-                    self.plm_qbt_request(operation="delete", name=movie_item['title'].title(), category="Movies")
-                    self.qbt_request['result'] = None
-                elif self.db_request['result'] == False:
+                    request_payload = {"operation": "remove", "category": "Movies", "data": {"type": "RSS", "name": movie_item['title'].title()}}
+                    send_qbt_request(self, request_payload)
+                    self.qbt_request['result'] = {}
+                elif self.db_request['result']['response'] == False:
                     current_date = datetime.datetime.today()
                     release_date = datetime.datetime.strptime(movie_item['release_date'], '%Y-%m-%d')
                     
                     if current_date < release_date:
                         self.tmdb_logger.info(f"Movie not yet released: {movie_item['title']} (release date {movie_item['release_date']})")
                         self.tmdb_logger.info(f"Sending request: add RSS Feed for {movie_item['title']}")
-                        self.plm_qbt_request(operation="add", name=movie_item['title'].title(), category="Movies")
-                        self.qbt_request['result'] = None
+                        request_payload = {"operation": "add", "category": "Movies", "data": {"type": "RSS", "name": movie_item['title'].title()}}
+                        send_qbt_request(self, request_payload)
+                        self.qbt_request['result'] = {}
                     elif current_date > release_date:
                         self.tmdb_logger.info(f"Movie already released: {movie_item['title']} (release date {movie_item['release_date']})")
-                        self.tmdb_logger.info(f"Sending request: try to add torrent for {movie_item['title']}")
-                        self.plm_rss_request(operation="add", name=movie_item['title'].title(), category="Movies")
+                        self.tmdb_logger.info(f"Sending request: try to add Torrent for {movie_item['title']}")
+                        request_payload = {"operation": "add", "category": "Movies", "data": {"type": "Torrent", "name": movie_item['title'].title()}}
+                        send_qbt_request(self, request_payload)
                         
-                        if self.rss_request['result'] == "failed":
+                        if self.qbt_request['result']['response'] == "fail":
                             self.tmdb_logger.info(f"Torrent add failed: no suitable result")
-                            self.plm_qbt_request(operation="add", name=movie_item['title'].title(), category="Movies")
-                            self.qbt_request['result'] = None
-                        elif self.rss_request['result'] == "successful":
+                            self.tmdb_logger.info(f"Sending request: add RSS Feed for {movie_item['title']}")
+                            request_payload = {"operation": "add", "category": "Movies", "data": {"type": "RSS", "name": movie_item['title'].title()}}
+                            send_qbt_request(self, request_payload)
+                            self.qbt_request['result'] = {}
+                        elif self.qbt_request['result']['response'] == "success":
                             self.tmdb_logger.info(f"Torrent add successful: {movie_item['title']}")
-                        self.rss_request['result'] = None
-                self.db_request['result'] = None
+                        self.qbt_request['result'] = {}
+                self.db_request['result'] = {}
 
             for tv_item in self.tv_list_items:
                 self.tmdb_logger.info(f"Sending request: search for entry with ID {tv_item['id']} in database")
-                self.plm_db_request(operation="search", id=tv_item['id'], category="TV")
+                request_payload = {"operation": "search", "category": "TV", "data": {"tmdb_id": tv_item['id']}}
+                send_db_request(self, request_payload)
 
-                self.tmdb_logger.info(f"Search result for database entry with ID {tv_item['id']}: {self.db_request['result']}")
-                if self.db_request['result'] == True:
+                self.tmdb_logger.info(f"Search result for database entry with ID {tv_item['id']}: {self.db_request['result']['response']}")
+                if self.db_request['result']['response'] == True:
                     self.tmdb_logger.info(f"Fetching details from TMDB: ID {tv_item['id']}")
                     tv_details = self.get_details(category="TV", id=tv_item['id'])
                     
@@ -65,83 +73,89 @@ class TMDB_Manager:
                     if production_status == False and current_date > last_air_date+week_delta:
                         self.tmdb_logger.info(f"TV Show last episode aired: over 1 week ago ({tv_item['name']} -> {tv_details['last_air_date']})")
                         self.tmdb_logger.info(f"Sending request: delete RSS Feed for {tv_item['name']}")
-                        self.plm_qbt_request(operation="delete", name=tv_item['name'].title(), category="TV")
-                        self.qbt_request['result'] = None
+                        request_payload = {"operation": "remove", "category": "TV", "data": {"type": "RSS", "name": tv_item['name'].title()}}
+                        send_qbt_request(self, request_payload)
+                        self.qbt_request['result'] = {}
                     elif production_status == True or current_date < last_air_date+week_delta:
                         self.tmdb_logger.info(f"TV Show last episode aired: under 1 week ago: {tv_item['name']} -> {tv_details['last_air_date']}")
                         self.tmdb_logger.info(f"Sending request: add RSS Feed for episodes of {tv_item['name']}")
-                        self.plm_qbt_request(operation="add", name=tv_item['name'].title(), category="TV Episode")
-                        self.qbt_request['result'] = None
-                elif self.db_request['result'] == False:
+                        request_payload = {"operation": "add", "category": "TV", "data": {"type": "RSS", "name": tv_item['name'].title()}}
+                        send_qbt_request(self, request_payload)
+                        self.qbt_request['result'] = {}
+                elif self.db_request['result']['response'] == False:
                     current_date = datetime.datetime.today()
                     first_air_date = datetime.datetime.strptime(tv_item['first_air_date'], '%Y-%m-%d')
 
                     if current_date < first_air_date:
                         self.tmdb_logger.info(f"TV Show not yet on air: {tv_item['name']} (first air date {tv_item['first_air_date']})")
                         self.tmdb_logger.info(f"Sending request: add RSS Feed for episodes of {tv_item['name']}")
-                        self.plm_qbt_request(operation="add", name=tv_item['name'].title(), category="TV Episode")
-                        self.qbt_request['result'] = None
+                        request_payload = {"operation": "add", "category": "TV", "data": {"type": "RSS", "name": tv_item['name'].title()}}
+                        send_qbt_request(self, request_payload)
+                        self.qbt_request['result'] = {}
                     elif current_date > first_air_date:
                         self.tmdb_logger.info(f"TV Show already on air: {tv_item['name']} (first air date {tv_item['first_air_date']})")
-                        self.tmdb_logger.info(f"Sending request: try to add torrent for first episode of {tv_item['name']}")
-                        self.plm_rss_request(operation="add", name=tv_item['name'].title(), category="TV Episode")
+                        self.tmdb_logger.info(f"Sending request: try to add Torrent for first episode of {tv_item['name']}")
+                        request_payload = {"operation": "add", "category": "TV", "data": {"type": "Torrent", "name": tv_item['name'].title()}}
+                        send_qbt_request(self, request_payload)
 
-                        if self.rss_request['result'] == "failed":
+                        if self.qbt_request['result']['response'] == "fail":
                             self.tmdb_logger.info(f"Torrent add failed: no suitable result")
-                            self.plm_qbt_request(operation="add", name=tv_item['name'].title(), category = "TV Episode")
-                            self.qbt_request['result'] = None
-                        elif self.rss_request['result'] == "successful":
+                            self.tmdb_logger.info(f"Sending request: add RSS Feed for episodes of {tv_item['name']}")
+                            request_payload = {"operation": "add", "category": "TV Episode", "data": {"type": "RSS", "name": tv_item['name'].title()}}
+                            send_qbt_request(self, request_payload)
+                            self.qbt_request['result'] = {}
+                        elif self.qbt_request['result']['response'] == "success":
                             self.tmdb_logger.info(f"Torrent add successfull: {tv_item['name']}")
-                        self.rss_request['result'] = None
-                    self.db_request['result'] = None
+                        self.qbt_request['result'] = {}
+                    self.db_request['result'] = {}
 # ==================================================================================================
-    def plm_db_request(self, operation, id, category):
-        self.tmdb_logger.info(f"Sending new DB request to PLM: {operation}, {id}, {category}")
-        self.db_request['operation'] = operation
-        self.db_request['tmdb_id'] = id
-        self.db_request['category'] = category
-        self.db_request['status'] = "new"
+    # def plm_db_request(self, operation, id, category):
+    #     self.tmdb_logger.info(f"Sending new DB request to PLM: {operation}, {id}, {category}")
+    #     self.db_request['operation'] = operation
+    #     self.db_request['tmdb_id'] = id
+    #     self.db_request['category'] = category
+    #     self.db_request['status'] = "new"
 
-        while self.db_request['status'] != "complete":
-            time.sleep(0.5)
+    #     while self.db_request['status'] != "complete":
+    #         time.sleep(0.5)
 
-        self.tmdb_logger.info(f"DB request successfully completed: {self.db_request['result']}")
-        self.db_request['status'] = "empty"
-        self.db_request['operation'] = None
-        self.db_request['tmdb_id'] = None
-        self.db_request['category'] = None
+    #     self.tmdb_logger.info(f"DB request successfully completed: {self.db_request['result']}")
+    #     self.db_request['status'] = "empty"
+    #     self.db_request['operation'] = None
+    #     self.db_request['tmdb_id'] = None
+    #     self.db_request['category'] = None
 # ==================================================================================================
-    def plm_qbt_request(self, operation, name, category):
-        self.tmdb_logger.info(f"Sending new QBT request to PLM: {operation}, {name}, {category}")
-        self.qbt_request['operation'] = operation
-        self.qbt_request['name'] = name
-        self.qbt_request['category'] = category
-        self.qbt_request['status'] = "new"
+    # def plm_qbt_request(self, operation, name, category):
+    #     self.tmdb_logger.info(f"Sending new QBT request to PLM: {operation}, {name}, {category}")
+    #     self.qbt_request['operation'] = operation
+    #     self.qbt_request['name'] = name
+    #     self.qbt_request['category'] = category
+    #     self.qbt_request['status'] = "new"
 
-        while self.qbt_request['status'] != "complete":
-            time.sleep(0.5)
+    #     while self.qbt_request['status'] != "complete":
+    #         time.sleep(0.5)
 
-        self.tmdb_logger.info(f"QBT request successfully completed: {self.qbt_request['result']}")
-        self.qbt_request['status'] = "empty"
-        self.qbt_request['operation'] = None
-        self.qbt_request['name'] = None
-        self.qbt_request['category'] = None
+    #     self.tmdb_logger.info(f"QBT request successfully completed: {self.qbt_request['result']}")
+    #     self.qbt_request['status'] = "empty"
+    #     self.qbt_request['operation'] = None
+    #     self.qbt_request['name'] = None
+    #     self.qbt_request['category'] = None
 # ==================================================================================================
-    def plm_rss_request(self, operation, name, category):
-        self.tmdb_logger.info(f"Sending new RSS request to PLM: {operation}, {name}, {category}")
-        self.rss_request['operation'] = operation
-        self.rss_request['name'] = name
-        self.rss_request['category'] = category
-        self.rss_request['status'] = "new"
+    # def plm_rss_request(self, operation, name, category):
+    #     self.tmdb_logger.info(f"Sending new RSS request to PLM: {operation}, {name}, {category}")
+    #     self.rss_request['operation'] = operation
+    #     self.rss_request['name'] = name
+    #     self.rss_request['category'] = category
+    #     self.rss_request['status'] = "new"
 
-        while self.rss_request['status'] != "complete":
-            time.sleep(0.5)
+    #     while self.rss_request['status'] != "complete":
+    #         time.sleep(0.5)
 
-        self.tmdb_logger.info(f"RSS request successfully completed: {self.rss_request['result']}")
-        self.rss_request['status'] = "empty"
-        self.rss_request['operation'] = None
-        self.rss_request['name'] = None
-        self.rss_request['category'] = None
+    #     self.tmdb_logger.info(f"RSS request successfully completed: {self.rss_request['result']}")
+    #     self.rss_request['status'] = "empty"
+    #     self.rss_request['operation'] = None
+    #     self.rss_request['name'] = None
+    #     self.rss_request['category'] = None
 # ==================================================================================================
     def search(self, category, query):
         self.tmdb_logger.info(f"New TMDB {category} search order received: '{query}'")
@@ -180,10 +194,8 @@ class TMDB_Manager:
         self.api_key = data['api_key']
         self.lists = data['lists']
 
-        # Request status: "empty" (nothing to do), "new" (send to PLM), "processing" (waiting for PLM response), "complete" (PLM response received)
-        self.db_request = {"status": "empty", "operation": None, "tmdb_id": None, "category": None, "result": None}
-        self.qbt_request = {"status": "empty", "operation": None, "name": None, "category": None, "result": None}
-        self.rss_request = {"status": "empty", "operation": None, "name": None, "category": None, "result": None}
+        self.db_request = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
+        self.qbt_request = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
 
         self.tmdb_logger = logger_setup(plm_path, self.logger_data)
         self.tmdb_logger.info(f"New TMDB_Manager instance created")
