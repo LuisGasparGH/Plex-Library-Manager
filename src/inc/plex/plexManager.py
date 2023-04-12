@@ -1,15 +1,15 @@
 import logging, os, time, pathlib, threading
 import plexapi
 
-from inc.logger.logger_setup import logger_setup
+from inc.logger.loggerSetup import loggerSetup
 
-class Plex_Manager:
+class PlexManager:
 # ==================================================================================================
-    def __init__(self, data, plm_path):
-        self.logger_data = data['logger']
+    def __init__(self, data, plmPath):
+        self.loggerData = data['logger']
         self.username = data['username']
         self.password = data['password']
         self.servername = data['servername']
 
-        self.plex_logger = logger_setup(plm_path, self.logger_data)
-        self.plex_logger.info(f"New Plex_Manager instance created")
+        self.plexLogger = loggerSetup(plmPath, self.loggerData)
+        self.plexLogger.info(f"New PlexManager instance created")

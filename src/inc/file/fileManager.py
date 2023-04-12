@@ -1,16 +1,15 @@
 import logging, os, time, pathlib, threading
 
-from inc.logger.logger_setup import logger_setup
+from inc.logger.loggerSetup import loggerSetup
 
-class File_Manager:
+class FileManager:
 # ==================================================================================================     
-    def __init__(self, data, plm_path):
-        self.plm_path = plm_path
-        self.logger_data = data['logger']
+    def __init__(self, data, plmPath):
+        self.loggerData = data['logger']
         self.path = data['path']
         
-        self.file_logger = logger_setup(plm_path, self.logger_data)
-        self.file_logger.info(f"New File_Manager instance created")
+        self.file_logger = loggerSetup(plmPath, self.loggerData)
+        self.file_logger.info(f"New FileManager instance created")
 
 # for entry in config['entries']:
 #     logging.info(f"Now modifying: {entry}")

@@ -1,5 +1,0 @@
-plex_database
-    movies_collection:
-        name;tmdb_id;save_path;updated
-    tv_collection:
-        name;tmdb_id;save_path;seasons;last_dl;last_upd
