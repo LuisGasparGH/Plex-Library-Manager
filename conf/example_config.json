@@ -1,24 +1,24 @@
 {
-    "plm_data":{
+    "plmData":{
         "logger":{
             "name": "plm-logger",
             "path": "/logs/plm/plex-library-manager.log"
         }   
     },
-    "db_data":{
+    "dbData":{
         "logger":{
             "name": "db-logger",
             "path": "/logs/db/db-manager.log"
 
         },
         "url": "mongodb://localhost:27017/",
-        "name": "plex_database",
+        "name": "plexDatabase",
         "collections":{
-            "tv": "tv_collection",
-            "movies": "movies_collection"
+            "tv": "tvCollection",
+            "movies": "moviesCollection"
         }
     },
-    "file_data":{
+    "fileData":{
         "logger":{
             "name": "file-logger",
             "path": "/logs/file/file-manager.log"
@@ -28,7 +28,7 @@
             "movies": "/path/to/plex/Library/Movies/"
         }
     },
-    "plex_data":{
+    "plexData":{
         "logger":{
             "name": "plex-logger",
             "path": "/logs/plex/plex-manager.log"
@@ -37,7 +37,7 @@
         "password": "password",
         "servername": "servername"
     },
-    "qbt_data":{
+    "qbtData":{
         "logger":{
             "name": "qbt-logger",
             "path": "/logs/qbt/qbt-manager.log"
@@ -47,15 +47,26 @@
         "port": 8080,
         "supported_extensions": [".mkv",".mp4",".avi", ".mov"]
     },
-    "tmdb_data":{
+    "rarbgData":{
+        "logger":{
+            "name": "rarbg-logger",
+            "path": "/logs/rarbg/rarbg-manager.log"
+        },
+        "retries": 10,
+        "categories":{
+            "tv": "tv_category_of_choice",
+            "movies": "movies_category_of_choice"
+        }
+    },
+    "tmdbData":{
         "logger":{
             "name": "tmdb-logger",
             "path": "/logs/tmdb/tmdb-manager.log"
         },
-        "api_key": "yourAPIkey",
+        "apiKey": "yourAPIkey",
         "lists":{
-            "tv_id": "tv_list_id",
-            "movies_id": "movies_list_id"
+            "tv": "tv_list_id",
+            "movies": "movies_list_id"
         }
     }
 }
