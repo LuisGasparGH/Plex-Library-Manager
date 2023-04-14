@@ -5,6 +5,7 @@ from inc.db.dbManager import DBManager
 from inc.file.fileManager import FileManager
 from inc.plex.plexManager import PlexManager
 from inc.qbt.qbtManager import QBTManager
+from inc.rarbg.rarbgManager import RARBGManager
 from inc.tmdb.tmdbManager import TMDBManager
 
 
@@ -98,6 +99,9 @@ class PlexLibraryManager:
             self.plmLogger.info(f"Thread started: {self.fqrThread.name}")
         except:
             self.plmLogger.warning(f"Error starting thread: {self.fqrThread.name}")
+
+        self.RARBGManager = RARBGManager(self.config['rarbgData'], self.plmPath)
+        self.plmLogger.info(f"New RARBGManager instance called")
         
         self.TMDBManager = TMDBManager(self.config['tmdbData'], self.plmPath)
         self.plmLogger.info(f"New TMDBManager instance called")

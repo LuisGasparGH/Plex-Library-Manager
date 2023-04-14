@@ -34,10 +34,20 @@ class QBTManager:
             
             time.sleep(3600)
 # ==================================================================================================
-    def modifyTorrent(self, operation, category, name):
+    def modifyTorrent(self, operation, category, data):
         if operation == "add":
-            pass
-            # This is where torrent search will occur, based on YIFY and EZTV API's
+            opResult = self.qbtClient.torrents_add(url=data['magnet'])
+
+            if opResult == "Ok.":
+                self.qbtLogger.info(f"Torrent added successfully: {data}")
+                
+                actionResult = {"response": "success"}
+            elif opResult == "Fails.":
+                self.qbtLogger.warning(f"Error adding torrent: {data}")
+
+                actionResult = {"response": "failed"}
+                
+            return actionResult
         elif operation == "modify":
             pass
         elif operation == "remove":
