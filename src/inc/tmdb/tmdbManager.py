@@ -204,7 +204,7 @@ class TMDBManager:
         self.qbtRequest = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
 
         self.tmdbLogger = loggerSetup(plmPath, self.loggerData)
-        self.tmdbLogger.info(f"New TMDB_Manager instance created")
+        self.tmdbLogger.info(f"New TMDBManager instance created")
 
         try:
             self.tmdbClient = tmdbsimple
