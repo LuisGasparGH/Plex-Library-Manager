@@ -126,7 +126,7 @@ class QBTManager:
                         if self.tmdbRequest['response']['result'] == "found":
                             tmdbName = self.tmdbRequest['response']['name']
                             tmdbId = self.tmdbRequest['response']['id']
-                            savePath = "/downloads/TV Shows/" + tmdbName
+                            savePath = "/downloads/TV Shows/" + tmdbName + "/" + season
 
                             for file in filteredFiles:
                                 removedFiles = 0
@@ -210,7 +210,6 @@ class QBTManager:
                         except:
                             self.qbtLogger.warning(f"Error changing save path: {torrent.name}")
                     elif torrent.category == "TV Episode" or torrent.category == "TV Season":
-                        savePath += "/" + season
                         try:
                             self.qbtClient.torrents_set_save_path(savePath, torrent.hash)
                             self.qbtLogger.info(f"Save path changed in {torrent.name}: {torrent.save_path} -> {savePath}")
@@ -283,8 +282,6 @@ class QBTManager:
                 
                 self.qbtClient.rss_set_rule(rule_name=name, rule_def=settings)
                 actionResult = {"response": "added"}
-        elif operation == "modify":
-            pass
         elif operation == "remove":
             actionResult = {"response": "notFound"}
             for rule in rssRules:

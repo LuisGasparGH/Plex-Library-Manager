@@ -15,8 +15,8 @@ class PlexLibraryManager:
 # DB
 #   search: {new, search, TV/Movies, {id, seasonEpisode, savePath}, {found/not_found}}
 #   add: {new, add, TV/Movies, {name, id, year (movies only), seasonEpisode (tv only), savePath}, {added/already_exists}}
-#   update: {new, update, TV/Movies, {id, savePath}, {updated/not_found}}
-#   remove: {new, remove, TV/Movies, {id, savePath}, {removed/not_found}}
+#   update: {new, update, TV/Movies, {id, seasonEpisode (tv only), savePath}, {updated/not_found}}
+#   remove: {new, remove, TV/Movies, {id, seasonEpisode (tv only), savePath}, {removed/not_found}}
 # File:
 #   organize: {new, organize, TV/Movies, {name}, {organized/not_found}}
 # QBT:

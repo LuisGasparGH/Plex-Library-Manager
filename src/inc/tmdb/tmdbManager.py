@@ -115,54 +115,6 @@ class TMDBManager:
                         self.qbtRequest['result'] = {}
                     self.dbRequest['result'] = {}
 # ==================================================================================================
-    # def plm_dbRequest(self, operation, id, category):
-    #     self.tmdbLogger.info(f"Sending new DB request to PLM: {operation}, {id}, {category}")
-    #     self.dbRequest['operation'] = operation
-    #     self.dbRequest['tmdbId'] = id
-    #     self.dbRequest['category'] = category
-    #     self.dbRequest['status'] = "new"
-
-    #     while self.dbRequest['status'] != "complete":
-    #         time.sleep(0.5)
-
-    #     self.tmdbLogger.info(f"DB request successfully completed: {self.dbRequest['result']}")
-    #     self.dbRequest['status'] = "empty"
-    #     self.dbRequest['operation'] = None
-    #     self.dbRequest['tmdbId'] = None
-    #     self.dbRequest['category'] = None
-# ==================================================================================================
-    # def plm_qbtRequest(self, operation, name, category):
-    #     self.tmdbLogger.info(f"Sending new QBT request to PLM: {operation}, {name}, {category}")
-    #     self.qbtRequest['operation'] = operation
-    #     self.qbtRequest['name'] = name
-    #     self.qbtRequest['category'] = category
-    #     self.qbtRequest['status'] = "new"
-
-    #     while self.qbtRequest['status'] != "complete":
-    #         time.sleep(0.5)
-
-    #     self.tmdbLogger.info(f"QBT request successfully completed: {self.qbtRequest['result']}")
-    #     self.qbtRequest['status'] = "empty"
-    #     self.qbtRequest['operation'] = None
-    #     self.qbtRequest['name'] = None
-    #     self.qbtRequest['category'] = None
-# ==================================================================================================
-    # def plm_rss_request(self, operation, name, category):
-    #     self.tmdbLogger.info(f"Sending new RSS request to PLM: {operation}, {name}, {category}")
-    #     self.rss_request['operation'] = operation
-    #     self.rss_request['name'] = name
-    #     self.rss_request['category'] = category
-    #     self.rss_request['status'] = "new"
-
-    #     while self.rss_request['status'] != "complete":
-    #         time.sleep(0.5)
-
-    #     self.tmdbLogger.info(f"RSS request successfully completed: {self.rss_request['result']}")
-    #     self.rss_request['status'] = "empty"
-    #     self.rss_request['operation'] = None
-    #     self.rss_request['name'] = None
-    #     self.rss_request['category'] = None
-# ==================================================================================================
     def searchItem(self, category, query):
         self.tmdbLogger.info(f"New TMDB {category} search order received: '{query}'")
         if category == "Movies":
