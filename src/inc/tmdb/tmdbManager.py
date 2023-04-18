@@ -66,7 +66,7 @@ class TMDBManager:
                 self.tmdbLogger.info(f"Search result for database entry with ID {tvItem['id']}: {self.dbRequest['result']['response']}")
                 if self.dbRequest['result']['response'] == True:
                     self.tmdbLogger.info(f"Fetching details from TMDB: ID {tvItem['id']}")
-                    tvDetails = self.getDetails(category="TV", id=tvItem['id'])
+                    tvDetails = self.detailsItem(category="TV", id=tvItem['id'])
                     
                     productionStatus = tvDetails['in_production']
                     lastAirDate = datetime.datetime.strptime(tvDetails['lastAirDate'], '%Y-%m-%d')
@@ -163,7 +163,7 @@ class TMDBManager:
     #     self.rss_request['name'] = None
     #     self.rss_request['category'] = None
 # ==================================================================================================
-    def search(self, category, query):
+    def searchItem(self, category, query):
         self.tmdbLogger.info(f"New TMDB {category} search order received: '{query}'")
         if category == "Movies":
             try:
@@ -179,7 +179,7 @@ class TMDBManager:
                 self.tmdbLogger.warning(f"Error executing {category} search order: '{query}'")
         return searchResult
 # ==================================================================================================
-    def getDetails(self, category, id):
+    def detailsItem(self, category, id):
         self.tmdbLogger.info(f"New TMDB {category} details order received: ID {id}")
         if category == "Movies":
             try:

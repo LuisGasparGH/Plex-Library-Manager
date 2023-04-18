@@ -1,4 +1,5 @@
 PlexAPI==4.13.4
 pymongo==4.3.3
-qbittorrent_api==2023.3.44
+qbittorrent_api==2023.4.46
+RarbgAPI==0.5.0
 tmdbsimple==2.9.1

@@ -7,6 +7,10 @@ class FileManager:
     def __init__(self, data, plmPath):
         self.loggerData = data['logger']
         self.path = data['path']
+
+        self.dbRequest = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
+        self.qbtRequest = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
+        self.tmdbRequest = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
         
         self.file_logger = loggerSetup(plmPath, self.loggerData)
         self.file_logger.info(f"New FileManager instance created")

@@ -10,11 +10,90 @@ from inc.tmdb.tmdbManager import TMDBManager
 
 
 class PlexLibraryManager:
+# Types of Requests
+# {status, operation, category, data{}, response{result, }}
+# DB
+#   search: {new, search, TV/Movies, {id, seasonEpisode, savePath}, {found/not_found}}
+#   add: {new, add, TV/Movies, {name, id, year (movies only), seasonEpisode (tv only), savePath}, {added/already_exists}}
+#   update: {new, update, TV/Movies, {id, savePath}, {updated/not_found}}
+#   remove: {new, remove, TV/Movies, {id, savePath}, {removed/not_found}}
+# File:
+#   organize: {new, organize, TV/Movies, {name}, {organized/not_found}}
+# QBT:
+#   add RSS: {new, add, TV Episode/TV Season/Movies, {type=RSS, name}, {added/failed/already_exists}}
+#   add Torrent: {new, add, TV Episode/TV Season/Movies, {type=Torrent, magnet}, {added/failed}}
+#   remove RSS: {new, remove, TV Episode/TV Season/Movies, {type=RSS, name} {removed/failed/not_found}}
+#   remove Torrent: {new, remove, TV Episode/TV Season/Movies, {type=Torrent, hash}}
+# RARBG:
+#   search: {new, search, TV/Movies, {query, id}, {found/not_found, torrentData}}
+# TMDB:
+#   search: {new, search, TV/Movies, {name, year (movies only)}, {found/not_found, name, id, year (movies only)}}
+#   details: {new, details, TV/Movies, {id}, {found/not_found, details}}
+# 
+# Requests done by:
+#   File -> DB (update)
+#   File -> DB (remove)
+#   File -> QBT (add)
+#   File -> TMDB (details)
+#   QBT -> DB (add)
+#   QBT -> File (organize)
+#   QBT -> RARBG (search)
+#   QBT -> TMDB (search)
+#   TMDB -> DB (search)
+#   TMDB -> QBT (add)
+#   TMDB -> QBT (remove)
+
 # ==================================================================================================
-    def fetchDBRequests(self):
-        self.plmLogger.info(f"Thread active: {self.fdrThread.name}")
+    def handleDBRequests(self, request):
+        if request['operation'] == "search":
+            result = self.DBManager.searchEntry(request['category'], request['data'])
+        elif request['operation'] == "add" or request['operation'] == "update" or request['operation'] == "remove":
+            result = self.DBManager.modifyEntry(request['operation'], request['category'], request['data'])
+        
+        return result
+# ==================================================================================================
+    def handleFileRequests(self, request):
+        if request['operation'] == "organize":
+            result = self.FileManager.triggerOrganize(request['category'], request['data'])
+        
+        return result
+# ==================================================================================================
+    def handleQBTRequests(self, request):
+        if request['operation'] == "add" or request['operation'] == "remove":
+            result = self.QBTManager.modifyTorrent(request['operation'], request['category'], request['data'])
+
+        return result
+# ==================================================================================================
+    def handleRARBGRequests(self, request):
+        if request['operation'] == "search":
+            result = self.RARBGManager.searchTorrent(request['category'], request['data'])
+
+        return result
+# ==================================================================================================
+    def handleTMDBRequests(self, request):
+        if request['operation'] == "search":
+            result = self.TMDBManager.searchItem(request['category'], request['data'])
+        elif request['operation'] == "details":
+            result = self.TMDBManager.detailsItem(request['category'], request['data'])
+
+        return result
+# ==================================================================================================
+    def fetchFileRequests(self):
+        self.plmLogger.info(f"Thread active: {self.ffrThread.name}")
         
         while True:
+            dbRequest = self.FileManager.dbRequest
+            qbtRequest = self.FileManager.qbtRequest
+
+            if dbRequest['status'] == "new":
+                self.FileManager.dbRequest['status'] = "processing"
+                self.FileManager.dbRequest['result'] = self.handleDBRequests(dbRequest)
+                self.FileManager.dbRequest['status'] = "complete"
+
+            if qbtRequest['status'] == "new":
+                self.FileManager.qbtRequest['status'] = "processing"
+                self.FileManager.qbtRequest['result'] = self.handleQBTRequests(qbtRequest)
+                self.FileManager.qbtRequest['status'] = "complete"
             
             time.sleep(1)
 # ==================================================================================================
@@ -22,6 +101,30 @@ class PlexLibraryManager:
         self.plmLogger.info(f"Thread active: {self.fqrThread.name}")
         
         while True:
+            dbRequest = self.QBTManager.dbRequest
+            fileRequest = self.QBTManager.fileRequest
+            rarbgRequest = self.QBTManager.rarbgRequest
+            tmdbRequest = self.QBTManager.tmdbRequest
+
+            if dbRequest['status'] == "new":
+                self.QBTManager.dbRequest['status'] = "processing"
+                self.QBTManager.dbRequest['result'] = self.handleDBRequests(dbRequest)
+                self.QBTManager.dbRequest['status'] = "complete"
+
+            if fileRequest['status'] == "new":
+                self.QBTManager.fileRequest['status'] = "processing"
+                self.QBTManager.fileRequest['result'] = self.handleFileRequests(fileRequest)
+                self.QBTManager.fileRequest['status'] = "complete"
+            
+            if rarbgRequest['status'] == "new":
+                self.QBTManager.rarbgRequest['status'] = "processing"
+                self.QBTManager.rarbgRequest['result'] = self.handleRARBGRequests(rarbgRequest)
+                self.QBTManager.rarbgRequest['status'] = "complete"
+
+            if tmdbRequest['status'] == "new":
+                self.QBTManager.tmdbRequest['status'] = "processing"
+                self.QBTManager.tmdbRequest['result'] = self.handleTMDBRequests(tmdbRequest)
+                self.QBTManager.tmdbRequest['status'] = "complete"
             
             time.sleep(1)
 # ==================================================================================================
@@ -34,34 +137,13 @@ class PlexLibraryManager:
 
             if dbRequest['status'] == "new":
                 self.TMDBManager.dbRequest['status'] = "processing"
-                
-                if dbRequest['operation'] == "search":
-                    searchResult = self.DBManager.searchEntry(dbRequest['category'], dbRequest['data'])
-
-                    if searchResult != None:
-                        self.TMDBManager.dbRequest['result'] = {"response": True}
-                    elif searchResult == None:
-                        self.TMDBManager.dbRequest['result'] = {"response": False}
-                    
-            self.TMDBManager.dbRequest['status'] = "complete"
+                self.TMDBManager.dbRequest['result'] = self.handleDBRequests(dbRequest)
+                self.TMDBManager.dbRequest['status'] = "complete"
             
             if qbtRequest['status'] == "new":
-                self.TMDBManager.dbRequest['status'] = "processing"
-                
-                if qbtRequest['operation'] == "add":
-                    if qbtRequest['data']['type'] == "Torrent":
-                        actionResult = self.QBTManager.modifyTorrent(operation=qbtRequest['operation'], category=qbtRequest['category'],
-                                                                        name=qbtRequest['data']['name'])
-                    elif qbtRequest['data']['type'] == "RSS":
-                        actionResult = self.QBTManager.modifyRSSFeed(operation=qbtRequest['operation'], category=qbtRequest['category'],
-                                                                         name=qbtRequest['data']['name'])
-                elif qbtRequest['operation'] == "remove":
-                    actionResult = self.QBTManager.modifyRSSFeed(operation=qbtRequest['operation'], category=qbtRequest['category'],
-                                                                     name=qbtRequest['data']['name'])
-                
-                self.TMDBManager.qbtRequest['result'] = actionResult
-
-            self.TMDBManager.qbtRequest['status'] = "complete"
+                self.TMDBManager.qbtRequest['status'] = "processing"
+                self.TMDBManager.qbtRequest['result'] = self.handleQBTRequests(qbtRequest)
+                self.TMDBManager.qbtRequest['status'] = "complete"
 
             time.sleep(1)
 # ==================================================================================================
@@ -78,15 +160,15 @@ class PlexLibraryManager:
 
         self.DBManager = DBManager(self.config['dbData'], self.plmPath)
         self.plmLogger.info(f"New DBManager instance called")
-        self.fdrThread = threading.Thread(target=self.fetchDBRequests, args=())
-        try:
-            self.fdrThread.start()
-            self.plmLogger.info(f"Thread started: {self.fdrThread.name}")
-        except:
-            self.plmLogger.warning(f"Error starting thread: {self.fdrThread.name}")
         
-        # self.FileManager = FileManager(self.config['fileData'], self.plmPath)
-        # logging.info(f"New FileManager instance called")
+        self.FileManager = FileManager(self.config['fileData'], self.plmPath)
+        self.plmLogger.info(f"New FileManager instance called")
+        self.ffrThread = threading.Thread(target=self.fetchFileRequests, args=())
+        try:
+            self.ffrThread.start()
+            self.plmLogger.info(f"Thread started: {self.ffrThread.name}")
+        except:
+            self.plmLogger.warning(f"Error starting thread: {self.ffrThread.name}")
         
         # self.PlexManager = PlexManager(self.config['plexData'], self.plmPath)
         # logging.info(f"New PlexManager instance called")

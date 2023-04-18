@@ -1,7 +1,8 @@
-import os, time, pathlib, threading, re, json
+import time, pathlib, threading, re, datetime
 import qbittorrentapi
 
 from inc.logger.loggerSetup import loggerSetup
+from inc.requests.requestsBus import *
 
 class QBTManager:
 # ==================================================================================================
@@ -9,49 +10,255 @@ class QBTManager:
         self.qbtLogger.info(f"Thread active: {self.scannerThread.name}")
         
         while True:
-            self.paused = self.qbtClient.torrents_info("paused")
-            self.seeding = self.qbtClient.torrents_info("seeding")
+            #------------------------------------------------------------------------------------------------------
+            # STEP 0 - Detects paused and seeding torrents
+            paused = self.qbtClient.torrents_info("paused")
+            seeding = self.qbtClient.torrents_info("seeding")
             
-            if len(self.paused) != 0:
-                self.qbtLogger.info(f"Paused torrents found: {len(self.paused)}")
+            if len(paused) != 0:
+                self.qbtLogger.info(f"Paused torrents found: {len(paused)}")
                 
-                for torrent in self.paused:
+                for torrent in paused:
+                    if torrent.category != "Movies" and torrent.category != "TV Episode" and torrent.category != "TV Season":
+                        self.qbtLogger.warning(f"Incompatible category detected: {torrent.category}, on torrent {torrent.name}, please review manually")
+                        continue
+                    
+                    self.qbtLogger.info(f"Handling paused {torrent.category} torrent: {torrent.name}")
+                    # Gets files from torrent
+                    torrentFiles = self.qbtClient.torrents_files(torrent.hash)
+                    filteredFiles = []
+                    #------------------------------------------------------------------------------------------------------
+                    # STEP 1 - Deletes all non media torrent files
+                    for file in torrentFiles:
+                        fileExt = pathlib.Path(file.name).suffix
+
+                        if fileExt not in self.mediaExt:
+                            try:
+                                self.qbtClient.torrents_file_priority(torrent.hash, file.id, 0)
+                                self.qbtLogger.info(f"Non-media file removed from {torrent.name}: {file.name}")
+                            except:
+                                self.qbtLogger.warning(f"Error removing non-media file from {torrent.name}: {file.name}")
+                        elif fileExt in self.mediaExt:
+                            filteredFiles.append(file)
+                    #------------------------------------------------------------------------------------------------------
+                    # STEP 2 - Filters item name
+                    # For Movies:
                     if torrent.category == "Movies":
-                        self.movies_handler(torrent=torrent, status="paused")
+                        for pattern in self.movieRegex:
+                            year = re.findall(pattern, filteredFiles[0].name, re.IGNORECASE)
+                            if len(year) != 0:
+                                break
+
+                        if len(year) != 0:
+                            self.qbtLogger.info(f"Regex correspondence found for {torrent.name} torrent: {year}")
+                        elif len(year) == 0:
+                            self.qbtLogger.warning(f"No regex correspondence found for {torrent.name}, please review manually")
+                            break
+
+                        itemName = filteredFiles[0].name.split(year[0])[0].title()
+                        year = year[0].replace(" ", "")
+                        year = year.replace(".", "")
+                        self.qbtLogger.info(f"Details from {torrent.name}: Title - {itemName}, Year - {year}")
+                    #------------------------------------------------------------------------------------------------------
+                    # For TV Shows:
                     elif torrent.category == "TV Episode" or torrent.category == "TV Season":
-                        self.tv_handler(torrent=torrent, status="paused")
-                    else:
-                        self.qbtLogger.warning(f"Incompatible category detected: {torrent.category}, on torrent {torrent.name}, \
-                                                please review manually")
-            
-            if len(self.seeding) != 0:
-                self.qbtLogger.info(f"Seeding torrents found: {len(self.seeding)}")
-                for torrent in self.seeding:
+                        for pattern in self.tvRegex:
+                            epName = re.findall(pattern, file.name, re.IGNORECASE)
+                            if len(epName) != 0:
+                                break
+
+                        if len(epName) != 0:
+                            self.qbtLogger.info(f"Regex correspondence found for {torrent.name} torrent: {epName}")
+                        elif len(epName) == 0:
+                            self.qbtLogger.warning(f"No regex correspondence found for {torrent.name}, please review manually")
+
+                        itemName = file.name.split(epName[0])[0].title()
+                        epName = epName[0].replace(" ", "")
+                        epName = epName.replace(".", "").title()
+                        season = epName[0:3]
+                        self.qbtLogger.info(f"Details from {torrent.name}: Title - {itemName}, Season - {season}")
+                    #------------------------------------------------------------------------------------------------------
+                    # STEP 3 - Makes request to TMDB to search for item
+                    # For Movies:
                     if torrent.category == "Movies":
-                        self.movies_handler(torrent=torrent, status="seeding")
+                        requestPayload = {"operation": "search", "category": "Movies", "data":{"name": itemName, "year": year}}
+                        self.qbtLogger.info(f"Sending TMDB request: {requestPayload}")
+
+                        sendTMDBRequest(self, requestPayload)
+                        self.qbtLogger.info(f"TMDB request completed with response: {self.tmdbRequest['response']}")
+                        
+                        if self.tmdbRequest['response']['result'] == "found":
+                            tmdbName = self.tmdbRequest['response']['name']
+                            tmdbId = self.tmdbRequest['response']['id']
+                            tmdbYear = self.tmdbRequest['response']['year']
+                            savePath = "/downloads/Movies/" + tmdbName
+                            
+                            requestPayload = {"operation": "add", "category": "Movies",
+                                              "data":{"name": tmdbName,
+                                                      "id": tmdbId,
+                                                      "year": tmdbYear,
+                                                      "savePath": savePath}}
+                            
+                            sendDBRequest(self, requestPayload)
+                            self.qbtLogger.info(f"DB request completed with response: {self.dbRequest['response']}")
+
+                            if self.dbRequest['response']['result'] == "alreadyExists":
+                                self.modifyTorrent("remove", {"hash": torrent.hash})
+                                self.qbtLogger.info(f"Removed already existing {torrent.category} torrent: {torrent.name}")
+
+                                self.modifyRSSFeed("remove", {"name": tmdbName})
+                                self.qbtLogger.info(f"Removed {torrent.category} RSS feed: {tmdbName}")
+                        elif self.tmdbRequest['response']['result'] == "notFound":
+                            torrentName = torrent.name + ".MANUAL_REVIEW"
+                            self.qbtClient.torrents_rename(torrent.hash, torrentName)
+
+                            self.qbtLogger.warning(f"TMDB result not found, renamed torrent: {torrent.name} -> {torrentName}, please review manually")
+                            break
+                    #------------------------------------------------------------------------------------------------------
+                    # For TV Shows:
                     elif torrent.category == "TV Episode" or torrent.category == "TV Season":
-                        self.tv_handler(torrent=torrent, status="seeding")
+                        requestPayload = {"operation": "search", "category": "TV", "data":{"name": itemName}}
+                        self.qbtLogger.info(f"Sending TMDB request: {requestPayload}")
+
+                        sendTMDBRequest(self, requestPayload)
+                        self.qbtLogger.info(f"TMDB request completed with response: {self.tmdbRequest['response']}")
+
+                        if self.tmdbRequest['response']['result'] == "found":
+                            tmdbName = self.tmdbRequest['response']['name']
+                            tmdbId = self.tmdbRequest['response']['id']
+                            savePath = "/downloads/TV Shows/" + tmdbName
+
+                            for file in filteredFiles:
+                                removedFiles = 0
+                                requestPayload = {"operation": "add", "category": "TV",
+                                                "data":{"name": tmdbName,
+                                                        "id": tmdbId,
+                                                        "seasonEpisode": epName,
+                                                        "savePath": savePath}}
+                                
+                                sendDBRequest(self, requestPayload)
+                                self.qbtLogger.info(f"DB request completed with response: {self.dbRequest['response']}")
+
+                                if self.dbRequest['response']['result'] == "alreadyExists":
+                                    self.qbtClient.torrents_file_priority(torrent.hash, file.id, 0)
+                                    self.qbtLogger.info(f"Removed file from torrent: {file.name} (already exists)")
+                                    removedFiles += 1
+
+                            if removedFiles == len(filteredFiles):
+                                self.modifyTorrent("remove", {"hash": torrent.hash})
+                                self.qbtLogger.info(f"Removed already existing {torrent.category} torrent: {torrent.name}")
+                                
+                                rssFeedExists = self.modifyRSSFeed("search", "TV", tmdbName)
+
+                                if rssFeedExists['response'] == "found":
+                                    requestPayload = {"operation": "details", "category": "TV",
+                                                      "data":{"id": tmdbId,}}
+                                    
+                                    sendTMDBRequest(self, requestPayload)
+                                    self.qbtLogger.info(f"TMDB request completed with response: {self.tmdbRequest['response']}")
+
+                                    if self.tmdbRequest['response']['result'] == "found":
+                                        productionStatus = self.tmdbRequest['response']['productionStatus']
+                                        currentDate = datetime.datetime.today()
+                                        lastAirDate = datetime.datetime.strptime(self.tmdbRequest['response']['lastAirDate'])
+                                        weekDelta = datetime.timedelta(days=7)
+
+                                        if productionStatus == False and currentDate > lastAirDate+weekDelta:
+                                            self.modifyRSSFeed("remove", {"name": tmdbName})
+                                            self.qbtLogger.info(f"Removed {torrent.category} RSS feed: {tmdbName}")
+                        elif self.tmdbRequest['response']['result'] == "notFound":
+                            torrentName = torrent.name + ".MANUAL_REVIEW"
+                            self.qbtClient.torrents_rename(torrent.hash, torrentName)
+
+                            self.qbtLogger.warning(f"TMDB result not found: renamed torrent: {torrent.name} -> {torrentName}, please review manually")
+                    #------------------------------------------------------------------------------------------------------
+                    # STEP 4 - Renames torrent and media files
+                    # For Movies:
+                    if torrent.category == "Movies":
+                        torrentName = tmdbName + "." + tmdbYear
+
+                        for file in filteredFiles:
+                            fileName = torrentName + fileExt
+                            try:
+                                self.qbtClient.torrents_rename_file(torrent.hash, file.id, file.name, fileName)
+                                self.qbtLogger.info(f"Media file renamed in {torrent.name}: {file.name} -> {fileName}")
+                            except:
+                                self.qbtLogger.warning(f"Error renaming media file in {torrent.name}: {file.name}")
+
+                        self.qbtClient.torrents_rename(torrent.hash, torrentName)
+                        self.qbtLogger.info(f"Torrent of {torrent.category} category renamed: {torrent.name} -> {torrentName}")
+                    elif torrent.category == "TV Episode" or torrent.category == "TV Season":
+                        torrentName = tmdbName + "." + season
+
+                        for file in filteredFiles:
+                            fileName = tmdbName + "." + epName
+                            try:
+                                self.qbtClient.torrents_rename_file(torrent.hash, file.id, file.name, fileName)
+                                self.qbtLogger.info(f"Media file renamed in {torrent.name}: {file.name} -> {fileName}")
+                            except:
+                                self.qbtLogger.warning(f"Error renaming media file in {torrent.name}: {file.name}")
+
+                        self.qbtClient.torrents_rename(torrent.hash, torrentName)
+                        self.qbtLogger.info(f"Torrent of {torrent.category} category renamed: {torrent.name} -> {torrentName}")
+                    #------------------------------------------------------------------------------------------------------
+                    # STEP 5 - Change save path
+                    # For Movies:
+                    if torrent.category == "Movies":
+                        try:
+                            self.qbtClient.torrents_set_save_path(savePath, torrent.hash)
+                            self.qbtLogger.info(f"Save path changed in {torrent.name}: {torrent.save_path} -> {savePath}")
+                        except:
+                            self.qbtLogger.warning(f"Error changing save path: {torrent.name}")
+                    elif torrent.category == "TV Episode" or torrent.category == "TV Season":
+                        savePath += "/" + season
+                        try:
+                            self.qbtClient.torrents_set_save_path(savePath, torrent.hash)
+                            self.qbtLogger.info(f"Save path changed in {torrent.name}: {torrent.save_path} -> {savePath}")
+                        except:
+                            self.qbtLogger.warning(f"Error changing save path: {torrent.name}")
+                    #------------------------------------------------------------------------------------------------------
+                    # STEP 6 - Resume torrent
+                    try:
+                        self.qbtClient.torrents_resume(torrent.hash)
+                        self.qbtLogger.info(f"Torrent resumed: {torrentName}")
+                    except:
+                        self.qbtLogger.warning(f"Error resuming torrent: {torrentName}")
+            #------------------------------------------------------------------------------------------------------
+            if len(seeding) != 0:
+                self.qbtLogger.info(f"Seeding torrents found: {len(seeding)}")
+                for torrent in seeding:
+                    try:
+                        self.qbtClient.torrents_delete(False, torrent.hash)
+                        self.qbtLogger.info(f"Deleted seeding torrent: {torrent.name}")
+                    except:
+                        self.qbtLogger.warning(f"Error deleting seeding torrent: {torrent.name}")
             
             time.sleep(3600)
 # ==================================================================================================
-    def modifyTorrent(self, operation, category, data):
+    def modifyTorrent(self, operation, data):
         if operation == "add":
-            opResult = self.qbtClient.torrents_add(url=data['magnet'])
+            opResult = self.qbtClient.torrents_add(data['magnet'])
 
             if opResult == "Ok.":
                 self.qbtLogger.info(f"Torrent added successfully: {data}")
                 
-                actionResult = {"response": "success"}
+                actionResult = {"response": "added"}
             elif opResult == "Fails.":
                 self.qbtLogger.warning(f"Error adding torrent: {data}")
 
                 actionResult = {"response": "failed"}
-                
-            return actionResult
-        elif operation == "modify":
-            pass
         elif operation == "remove":
-            pass
+            try:
+                opResult = self.qbtClient.torrents_delete(False, data['hash'])
+                self.qbtLogger.info(f"Torrent removed successfully: {data}")
+
+                actionResult = {"response": "removed"}
+            except:
+                self.qbtLogger.warning(f"Error removing torrent: {data}")
+
+                actionResult = {"response": "failed"}
+
+        return actionResult
 # ==================================================================================================
     def modifyRSSFeed(self, operation, category, name):
         # Apply logger
@@ -75,163 +282,32 @@ class QBTManager:
                             "lastMatch": "", "addPaused": True, "assignedCategory": category, "savePath": savePath}    
                 
                 self.qbtClient.rss_set_rule(rule_name=name, rule_def=settings)
+                actionResult = {"response": "added"}
         elif operation == "modify":
             pass
         elif operation == "remove":
-            actionResult = {"response": "none_found"}
+            actionResult = {"response": "notFound"}
             for rule in rssRules:
                 if rule.title() == name:
                     self.qbtClient.rss_remove_rule(rule_name=rule)
-                    actionResult = {"response": "deleted"}
+                    actionResult = {"response": "removed"}
+        elif operation == "search":
+            if bool(rssRules[name]) == True:
+                actionResult = {"response": "found"}
+            elif bool(rssRules[name]) == False:
+                actionResult = {"response": "notFound"}
             
-            return actionResult
+        return actionResult
 # ==================================================================================================
-    # TO DO - Add protection against different torrent name patterns (test from various websites to catch new patterns)
-    def movies_handler(self, torrent, status):
-        if status == "paused":
-            self.qbtLogger.info(f"Handling paused {torrent.category} torrent: {torrent.name}")
-
-            movie_name = torrent.name.split(" (")[0]
-            self.qbtLogger.info(f"Details gathered from {torrent.category} torrent: title: {movie_name}")
-            torrent_files = self.qbtClient.torrents_files(torrent_hash=torrent.hash)
-            
-            for file in torrent_files:
-                file_extension = pathlib.Path(file.name).suffix
-
-                if file_extension not in self.supported_extensions:
-                    try:
-                        self.qbtClient.torrents_file_priority(torrent_hash=torrent.hash, file_ids=file.id, priority=0)
-                        self.qbtLogger.info(f"Non-media file removed from {torrent.name}: {file.name}")
-                    except:
-                        self.qbtLogger.warning(f"Error removing non-media file from {torrent.name}: {file.name}")
-                elif file_extension in self.supported_extensions:
-                    new_name = movie_name + file_extension
-                    try:
-                        self.qbtClient.torrents_rename_file(torrent_hash=torrent.hash, old_path=file.name, new_path=new_name)
-                        self.qbtLogger.info(f"Media file renamed in {torrent.name}: {file.name} -> {new_name}")
-                    except:
-                        self.qbtLogger.warning(f"Error renaming media file in {torrent.name}: {file.name}")
-            
-            new_save_path = torrent.save_path + "/" + movie_name
-            try:
-                self.qbtClient.torrents_set_save_path(save_path=new_save_path, torrent_hashes=torrent.hash)
-                self.qbtLogger.info(f"Save path changed in {torrent.name}: {torrent.save_path} -> {new_save_path}")
-            except:
-                self.qbtLogger.warning(f"Error changing save path: {torrent.name}")
-
-            try:
-                self.qbtClient.torrents_rename(torrent_hash=torrent.hash, new_torrent_name=movie_name)
-                self.qbtLogger.info(f"Torrent renamed: {torrent.name} -> {movie_name}")
-            except:
-                self.qbtLogger.warning(f"Error renaming torrent: {torrent.name}")
-            
-            try:
-                self.qbtClient.torrents_resume(torrent_hashes=torrent.hash)
-                self.qbtLogger.info(f"Torrent resumed: {movie_name}")
-            except:
-                self.qbtLogger.warning(f"Error resuming torrent: {torrent.name}")
-        elif status == "seeding":
-            self.qbtLogger.info(f"Handling seeding {torrent.category} torrent: {torrent.name}")
-            self.dbRequest = {"status": "new", "name": torrent.name, "category": "Movies", "save_path": torrent.save_path}
-            self.qbtLogger.info(f"New DB update request sent to PLM: {self.dbRequest}")
-            
-            while self.dbRequest['status'] != "completed":
-                time.sleep(0.5)
-            
-            self.qbtLogger.info(f"Request successfully completed")
-            self.dbRequest['status'] = "empty"
-            
-            try:
-                self.qbtClient.torrents_delete(delete_files=False, torrent_hashes=torrent.hash)
-                self.qbtLogger.info(f"Torrent deleted: {torrent.name}")
-            except:
-                self.qbtLogger.warning(f"Error deleting torrent: {torrent.name}")
+    def moviesHandler(self, torrent):
+        # Integrate scanner work here after
+        # It may be more code, but its easier to debug
+        pass
 # ==================================================================================================
-    # TO DO - IN TV EPISODE, ADAPT REGEX TO DETECT DOUBLE EPISODES (SxxExx-xx)
-    def tv_handler(self, torrent, status):
-        if status == "paused":
-            self.qbtLogger.info(f"Handling paused {torrent.category} torrent: {torrent.name}")
-            
-            if torrent.category == "TV Episode":
-                season_episode = re.findall(self.tvRegex, torrent.name, flags=re.IGNORECASE)
-                
-                if len(season_episode) != 0:
-                    self.qbtLogger.info(f"Season-Episode pattern found in torrent: {torrent.name}")
-                    show_name = torrent.name.split(season_episode[0])[0]
-                    season_episode = season_episode[0].title()
-                    
-                    if "." in show_name:
-                        show_name = show_name.replace(".", " ").title()
-                        if show_name[-1] == " ":
-                            show_name = show_name[:-1]
-                    
-                    self.qbtLogger.info(f"Details gathered from {torrent.category} torrent: title: {show_name}, season-episode: {season_episode}")
-                    torrent_files = self.qbtClient.torrents_files(torrent_hash=torrent.hash)
-                    
-                    for file in torrent_files:
-                        file_extension = pathlib.Path(file.name).suffix()
-                        
-                        if file_extension not in self.supported_extensions:
-                            try:
-                                self.qbtClient.torrents_file_priority(torrent_hash=torrent.hash, file_ids=file.id, priority=0)
-                                self.qbtLogger.info(f"Non-media file removed from torrent: {file.name}")
-                            except:
-                                self.qbtLogger.warning(f"Error removing non-media file from {torrent.name}: {file.name}")
-                        elif file_extension in self.supported_extensions:
-                            new_name = show_name + " " + season_episode + file_extension
-                            try:
-                                self.qbtClient.torrents_rename_file(torrent_hash=torrent.hash, old_path=file.name, new_path=new_name)
-                                self.qbtLogger.info(f"Media file renamed in {torrent.name}: {file.name} -> {new_name}")
-                            except:
-                                self.qbtLogger.warning(f"Error renaming media file in {torrent.name}: {file.name}")
-                    
-                    season_number = int(season_episode[1:3])
-                    new_save_path = torrent.save_path + "/Season " + str(season_number)
-                    try:
-                        self.qbtClient.torrents_set_save_path(save_path=new_save_path, torrent_hashes=torrent.hash)
-                        self.qbtLogger.info(f"Save path changed in {torrent.name}: {torrent.save_path} -> {new_save_path}")
-                    except:
-                        self.qbtLogger.warning(f"Error changing save path: {torrent.name}")
-                    
-                    torrent_rename = show_name + "." + season_episode
-                    try:
-                        self.qbtClient.torrents_rename(torrent_hash=torrent.hash, new_torrent_name=torrent_rename)
-                        self.qbtLogger.info(f"Torrent renamed: {torrent.name} -> {torrent_rename}")
-                    except:
-                        self.qbtLogger.warning(f"Error renaming torrent: {torrent.name}")
-
-                    try:
-                        self.qbtClient.torrents_resume(torrent_hashes=torrent.hash)
-                        self.qbtLogger.info(f"Torrent resumed: {torrent_rename}")
-                    except:
-                        self.qbtLogger.warning(f"Error resuming torrent: {torrent.name}")
-                elif len(season_episode) == 0:
-                    self.qbtLogger.warning(f"No season-episode pattern found in torrent: {torrent.name}, please review manually")
-            elif torrent.category == "TV Season":
-                # TO DO
-                pass
-        elif status == "seeding":
-            self.qbtLogger.info(f"Handling seeding {torrent.category} torrent: {torrent.name}")
-            
-            show_save_path = os.path.split(torrent.save_path)[0]
-            split_name = torrent.name.split(".")
-            name = split_name[0]
-            last_dl = split_name[1]
-            
-            self.dbRequest = {"status": "new", "name": name, "category": "TV", "save_path": show_save_path, "last_dl": last_dl}
-            self.qbtLogger.info(f"New DB update request sent to PLM: {self.dbRequest}")
-            
-            while self.dbRequest['status'] != "completed":
-                time.sleep(0.5)
-            
-            self.qbtLogger.info(f"Request successfully completed")
-            self.dbRequest['status'] = "empty"
-
-            try:
-                self.qbtClient.torrents_delete(delete_files=False, torrent_hashes=torrent.hash)
-                self.qbtLogger.info(f"Torrent deleted: {torrent.name}")
-            except:
-                self.qbtLogger.warning(f"Error deleting torrent: {torrent.name}")
+    def tvHandler(self, torrent):
+        # Integrate scanner work here after
+        # It may be more code, but its easier to debug
+        pass
 # ==================================================================================================
     def __init__(self, data, plmPath):
         self.loggerData = data['logger']
@@ -240,8 +316,13 @@ class QBTManager:
         self.port = data['port']
         self.mediaExt = data['mediaExt']
 
-        self.tvRegex = "s\d{2}e\d{2}"
-        self.dbRequest = {"status": "empty"}
+        self.movieRegex = ["\.\d{4}\.", "\ \d{4}\ ", "\(\d{4}\)"]
+        self.tvRegex = ["\.s\d{2}e\d{2}\.", "\ \s\d{2}e\d{2}\ "]
+
+        self.dbRequest = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
+        self.fileRequest = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
+        self.rarbgRequest = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
+        self.tmdbRequest = {"status": "empty", "operation": None, "category": None, "data": {}, "result": {}}
 
         self.qbtLogger = loggerSetup(plmPath, self.loggerData)
         self.qbtLogger.info(f"New QBTManager instance created")
